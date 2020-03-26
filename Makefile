@@ -10,6 +10,10 @@ proto_dir := $(cache_dir)/protos
 proto_manifest := $(proto_dir)/manifest.json
 python := $(shell cd python && poetry env info -p)/bin/python3
 
+export GOBIN := .cache/bin
+export PATH := ${GOBIN}:${PATH}
+
+
 $(download_protos_zip):
 	@mkdir -p $(@D)
 	curl -sSL https://github.com/digital-asset/daml/releases/download/v$(daml_proto_version)/protobufs-$(daml_proto_version).zip -o $@
@@ -81,11 +85,22 @@ fetch-protos: .cache/protos/protobufs-$(daml_proto_version).zip
 gen-python: .cache/make/python.mk  ## Rebuild Python code-generated files.
 
 
+.PHONY: gen-go
+gen-go: .cache/bin/protoc-gen-go
+	mkdir -p go/pkg/generated
+	protoc --proto_path=$(proto_dir) $< --go_out=go/pkg/generated --go_opt=paths=source_relative
+
+
 .cache/make/dars.mk: _build/dar/make-fragment
 	mkdir -p $(@D)
 	$^ > $@
+	
 
 
+.cache/bin/protoc-gen-go:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
+
+	
 .cache/make/python.mk: _build/python/make-fragment $(proto_manifest)
 	mkdir -p $(@D)
 	$^ > $@
@@ -93,3 +108,14 @@ gen-python: .cache/make/python.mk  ## Rebuild Python code-generated files.
 
 include .cache/make/dars.mk
 include .cache/make/python.mk
+
+
+#PATH=~/go/bin:$PATH \
+#  protoc \
+#    --proto_path=../.cache/protos \
+#    --go_out=gen
+#     ../.cache/protos/com/daml/daml_lf_dev/daml_lf.proto \
+#     ../.cache/protos/com/daml/daml_lf_dev/daml_lf_?.proto 
+
+
+
